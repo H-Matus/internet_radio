@@ -6,7 +6,7 @@ Serial monitor baudrate can be set in platformio.ini with the "monitor_speed" va
 # ESP32
 I am using Espressif ESP32-WROOM-32D Microcontroller.
 
-###Errors
+### Errors
 - If Platformio fails to fetch the correct address to flash the code into, hold the BOOT button on the microcontroller during "PlatformIO: Upload".
     - There is a better way of doing this from software side, so that user would not have to physically hold the BOOT button, but I lost the explanation.
 
