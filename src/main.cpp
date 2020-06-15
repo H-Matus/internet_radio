@@ -1,83 +1,95 @@
+// Standard Libraries
 #include <Arduino.h>
+#include <VS1053.h>
+#include <HTTPClient.h>
+#include <esp_wifi.h>
 #include <WiFi.h>
-#include <WebServer.h>
-#include <DNSServer.h>
 
-struct Button
-{
-    const uint8_t PIN;
-    uint32_t numberKeyPresses;
-    bool pressed;
-};
-
-Button button1 = {18, 0, false};
-const int LedPin = 2;
+// Custom Libraries
 
 
-void IRAM_ATTR isr()
-{
-    button1.numberKeyPresses += 1;
-    button1.pressed = true;
-}
+// MP3 Decoder Pins
+#define VS1053_CS     5
+#define VS1053_DCS    16
+#define VS1053_DREQ   4
+
+// Default volume
+#define VOLUME 80
+
+VS1053 player(VS1053_CS, VS1053_DCS, VS1053_DREQ);
+WiFiClient client;
+
+// WiFi settings example, substitute your own
+const char *ssid = "BeBox 3";
+const char *password = "snowdrop396";
+
+char *host = "realfm.live24.gr";
+char *path = "/realfm";
+int httpPort = 80;
+
+// The buffer size 64 seems to be optimal. At 32 and 128 the sound might be brassy.
+uint8_t mp3buff[64];
 
 void setup()
 {
-    // Setup
-    Serial.begin(9600);
-    delay(1000);
-    Serial.println("Setup complete");
+    Serial.begin(115200);
 
-    // Assigning pins
-    pinMode(button1.PIN, INPUT_PULLUP);
-    pinMode(LedPin, OUTPUT);
+    // Wait for VS1053 and PAM8403 to power up
+    // otherwise the system might not start up correctly
+    delay(3000);
 
-    // ISRs
-    attachInterrupt(button1.PIN, isr, FALLING);
-}
+    Serial.println("\n\nSimple Radio Node WiFi Radio");
 
-void loop()
-{
+    SPI.begin();
 
-    if (button1.pressed)
-    {
-        Serial.printf("Button 1 has been pressed %u times\n", button1.numberKeyPresses);
-        button1.pressed = false;
-        digitalWrite(2, HIGH);
-        delay(500);
-        digitalWrite(2, LOW);
-    }
+    player.begin();
+    player.switchToMp3Mode();
+    player.setVolume(100);
 
-    
+    Serial.print("Connecting to SSID ");
+    Serial.println(ssid);
+    WiFi.begin(ssid, password);
 
-    //Detach Interrupt after 1 Minute
-    static uint32_t lastMillis = 0;
-    if (millis() - lastMillis > 60000)
-    {
-        lastMillis = millis();
-        detachInterrupt(button1.PIN);
-        Serial.println("Interrupt Detached!");
-    }
-}
-
-/*
-void setup() 
-{
-    Serial.begin(9600);
-    Serial.println();
-
-    delay(1000);
-    
-    WiFi.begin("BeBox 3", "snowdrop396");
-
-    Serial.print("Connecting");
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
         Serial.print(".");
     }
-    Serial.println();
 
-    Serial.print("Connected, IP address: ");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
+
+    Serial.print("connecting to ");
+    Serial.println(host);
+
+    if (!client.connect(host, httpPort))
+    {
+        Serial.println("Connection failed");
+        return;
+    }
+
+    Serial.print("Requesting stream: ");
+    Serial.println(path);
+
+    client.print(String("GET ") + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
 }
-*/
+
+void loop()
+{
+    if (!client.connected())
+    {
+        Serial.println("Reconnecting...");
+        if (client.connect(host, httpPort))
+        {
+            client.print(String("GET ") + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+        }
+    }
+
+    if (client.available() > 0)
+    {
+        // The buffer size 64 seems to be optimal. At 32 and 128 the sound might be brassy.
+        uint8_t bytesread = client.read(mp3buff, 64);
+        player.playChunk(mp3buff, bytesread);
+    }
+}
