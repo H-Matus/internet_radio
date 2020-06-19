@@ -3,6 +3,14 @@ This is a project to build an internet radio using Espressif ESP32-WROOM-32D mic
 
 Serial monitor baudrate can be set in platformio.ini with the "monitor_speed" variable.
 
+# Objectives
+1. Program ESP32 as a HTTP server using WiFi Station (STA) mode.
+    1. Make a nice GUI
+    2. Add more radio stations
+2. Add a Rotary Encoder Module to change the volume
+3. Add an LCD screen
+4. Add a powerbank as a main supply
+
 # ESP32
 I am using Espressif ESP32-WROOM-32D Microcontroller.
 
